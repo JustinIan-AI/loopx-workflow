@@ -1,1 +1,1 @@
-{"acquired_at":"2026-10-21T09:55:02.547905Z","agent_id":"codex","host":"JundeMacBook-Air.local","lock_id":"f976fe4a7730282f","operation":"register_agent","pid":70983,"policy":"mutation","released_at":"2026-10-21T09:55:02.605280Z","schema_version":"file_lock_holder_v0"}
+{"acquired_at":"2026-10-21T10:22:47.614588Z","agent_id":"codex","host":"JundeMacBook-Air.local","lock_id":"f976fe4a7730282f","operation":"register_agent","pid":77494,"policy":"mutation","released_at":"2026-10-21T10:22:47.681597Z","schema_version":"file_lock_holder_v0"}
