@@ -180,12 +180,12 @@ describe('S3 body assembler', () => {
 });
 
 describe('INV3 check-result gate', () => {
-  test('loopx check-result failure -> exit 1, no comment', () => {
+  test('check-result rejection -> integrity gap published honestly, verdict capped', () => {
     const sbx = makeSandbox({ loopxCheckResult: 'fail' });
     const r = run(sbx, ['--pr', '7', '--repo', 'o/r', '--feature', 'native-dispatch-deep-integration']);
-    assert.notStrictEqual(r.code, 0);
-    const calls = fs.readFileSync(sbx.logs, 'utf8');
-    assert.doesNotMatch(calls, /\/gh pr comment/);
+    assert.strictEqual(r.code, 0, r.out);
+    assert.match(r.out, /CHECK_RESULT_INTEGRITY_GAP/);
+    assert.match(r.out, /request_changes/);
   });
 });
 

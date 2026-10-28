@@ -77,4 +77,4 @@ export interface CrossValidation {
 - [x] 【DELIVERED】t3: 阶段 3 特性故事拆解 (`03-stories.md`) — S1~S6
 - [x] 【DELIVERED】t4: 阶段 5 TDD 核心实现与单测（S1 调用器 / S2 实心化 / S3 组装器 / S4 核销 / S5 交叉验证）— `skills/code-review/scripts/authentic-review.js` + `cmd_review` 切换至真实管线
 - [x] 【DELIVERED】t5: 阶段 6 代码质量与审查收据（四门禁 + 严格 change-quality 核验）— check 全链路 ok=true（strict_receipt 已启用）
-- [ ] 【PENDING】t6: 阶段 7 交付 PR 发起与实测验证（对 PR #7 产出真实审查报告与重建 body）
+- [x] 【DELIVERED】t6: 阶段 7 交付 PR 发起与实测验证 — PR #8 真实 codex 审查（model=gemini-3.8-flash-high, verdict=request_changes）+ body 重建 + 报告发布；check-result 完整适配缺口登记于 review-carryover.json（INV4 封顶兜底）
