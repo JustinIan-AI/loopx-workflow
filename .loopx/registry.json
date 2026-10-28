@@ -1,6 +1,6 @@
 {
   "schema_version": "0.1",
-  "updated_at": "2026-10-28T17:46:39+08:00",
+  "updated_at": "2026-10-28T18:01:32+08:00",
   "common_runtime_root": "/Users/freecisco_yan/.codex/loopx",
   "goals": [
     {
@@ -221,6 +221,12 @@
           "signal": "noul",
           "drift_threshold": 2,
           "contract_revision": "04c553f2194164675cb665907392270db48226c05a519b0abf76bdd9e9680f7a"
+        },
+        "change_quality_qualification": {
+          "schema_version": "change_quality_qualification_policy_v0",
+          "enabled": true,
+          "safe_fix": false,
+          "strict_receipt": true
         }
       }
     },
@@ -382,6 +388,12 @@
           "signal": "noul",
           "drift_threshold": 2,
           "contract_revision": "8d44c83e419b973df393fc43334e7d29791ebf64122cdac3b0c82ce94b63d5f8"
+        },
+        "change_quality_qualification": {
+          "schema_version": "change_quality_qualification_policy_v0",
+          "enabled": true,
+          "safe_fix": false,
+          "strict_receipt": true
         }
       }
     },
@@ -459,6 +471,12 @@
           "signal": "noul",
           "drift_threshold": 2,
           "contract_revision": "a3bcc9dbb5479c6fb9013d0531ad1ab4932270d0797f4bac08ff9f7d1e0189d7"
+        },
+        "change_quality_qualification": {
+          "schema_version": "change_quality_qualification_policy_v0",
+          "enabled": true,
+          "safe_fix": false,
+          "strict_receipt": true
         }
       }
     },
@@ -536,6 +554,12 @@
           "signal": "noul",
           "drift_threshold": 2,
           "contract_revision": "40e834f8cad55b74f92b64d807040f6a12241315146e48ad1c1dda9eeef15ad6"
+        },
+        "change_quality_qualification": {
+          "schema_version": "change_quality_qualification_policy_v0",
+          "enabled": true,
+          "safe_fix": false,
+          "strict_receipt": true
         }
       }
     }
