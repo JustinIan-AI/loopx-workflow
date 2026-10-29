@@ -27,6 +27,18 @@ test('1. Feature Capsule & Directory skeleton integrity check', () => {
     );
   }
 
+  // Clean-clone invariant: Git does not track empty directories, so every
+  // required directory must contain at least one tracked entry (use .gitkeep
+  // for empty ones). Otherwise a fresh `git clone && npm test` fails here.
+  for (const dir of requiredDirs) {
+    const tracked = execSync(`git ls-files -- ${dir}`, { cwd: PROJECT_ROOT, encoding: 'utf8' }).trim();
+    assert.strictEqual(
+      tracked.length > 0,
+      true,
+      `Directory must be git-tracked (add .gitkeep if empty): ${dir}`
+    );
+  }
+
   // Check that sample feature capsule exists and contains self-contained files
   const hardGuardDir = path.join(PROJECT_ROOT, 'specs/features/hard-guard');
   assert.strictEqual(fs.existsSync(hardGuardDir), true, 'Sample feature specs/features/hard-guard must exist');
