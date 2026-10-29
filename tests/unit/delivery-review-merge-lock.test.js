@@ -78,6 +78,10 @@ if [[ "$args" == *"--check-result"* ]]; then
   echo '{"ok": true, "status": "consistent"}'
   exit 0
 fi
+if [[ "$args" == *"pr-review"* && "$args" == *"--format json"* ]]; then
+  echo '{"schema_version":"pull_request_review_packet_v0","repository":"local/sim","pull_requests":[]}'
+  exit 0
+fi
 if [[ "$args" == *"--check-merge-readiness"* ]]; then
   if [[ "\${MOCK_LOOPX_READINESS_FAIL:-}" == "1" ]]; then exit 1; fi
   exit 0

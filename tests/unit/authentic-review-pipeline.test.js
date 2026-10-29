@@ -59,7 +59,33 @@ JSON
     fi
     exit 0 ;;
   *loopx)
+    if [[ "$args" == *"pr-review"* && "$args" == *"--format json"* ]]; then
+      cat <<JSON
+{"schema_version":"pull_request_review_packet_v0","repository":"o/r","request":{"source":"github_cli"},"pull_requests":[{"number":7,"headRefOid":"${mockHeadOid}","headRefName":"feature/x","title":"t","review_action_kind":"review"}]}
+JSON
+      exit 0
+    fi
     if [[ "$args" == *"--check-result"* ]]; then
+      result_file=""; packet_file=""; prev=""
+      for a in $args; do
+        if [[ "$prev" == "--check-result" ]]; then result_file="$a"; fi
+        if [[ "$prev" == "--packet" ]]; then packet_file="$a"; fi
+        prev="$a"
+      done
+      if [[ -n "$result_file" && ! -f "$result_file" ]]; then
+        echo "RESULT_FILE_MISSING_AT_CALL_TIME $result_file" >> ${JSON.stringify(logs)}/calls.log
+      else
+        echo "RESULT_FILE_PRESENT_AT_CALL_TIME" >> ${JSON.stringify(logs)}/calls.log
+      fi
+      if [[ -n "$packet_file" && -f "$packet_file" ]] && grep -q '"pull_requests"' "$packet_file"; then
+        echo "PACKET_HAS_PULL_REQUESTS" >> ${JSON.stringify(logs)}/calls.log
+      fi
+      if [[ -n "$result_file" && -f "$result_file" ]] && grep -q '"pull_request_review_result_v1"' "$result_file"; then
+        echo "RESULT_SCHEMA_V1" >> ${JSON.stringify(logs)}/calls.log
+      fi
+      if [[ -n "$result_file" && -f "$result_file" ]] && grep -q '"target_exact_head": "7@'"${mockHeadOid}"'"' "$result_file"; then
+        echo "TARGET_EXACT_HEAD_MATCHES" >> ${JSON.stringify(logs)}/calls.log
+      fi
       if [[ "${loopxCheckResult}" == "fail" ]]; then echo "inconsistent" >&2; exit 1; fi
       echo '{"ok": true, "status": "consistent"}'
       exit 0
@@ -186,6 +212,26 @@ describe('INV3 check-result gate', () => {
     assert.strictEqual(r.code, 0, r.out);
     assert.match(r.out, /CHECK_RESULT_INTEGRITY_GAP/);
     assert.match(r.out, /request_changes/);
+  });
+});
+
+describe('INV3 check-result protocol alignment', () => {
+  test('result file written BEFORE --check-result call (no timing inversion)', () => {
+    const sbx = makeSandbox();
+    const r = run(sbx, ['--pr', '7', '--repo', 'o/r', '--feature', 'native-dispatch-deep-integration']);
+    assert.strictEqual(r.code, 0, r.out);
+    const calls = fs.readFileSync(sbx.logs, 'utf8');
+    assert.match(calls, /RESULT_FILE_PRESENT_AT_CALL_TIME/);
+    assert.doesNotMatch(calls, /RESULT_FILE_MISSING_AT_CALL_TIME/);
+  });
+  test('packet is pull_request_review_packet_v0 with pull_requests; result binds pr@head', () => {
+    const sbx = makeSandbox();
+    const r = run(sbx, ['--pr', '7', '--repo', 'o/r', '--feature', 'native-dispatch-deep-integration']);
+    assert.strictEqual(r.code, 0, r.out);
+    const calls = fs.readFileSync(sbx.logs, 'utf8');
+    assert.match(calls, /PACKET_HAS_PULL_REQUESTS/);
+    assert.match(calls, /RESULT_SCHEMA_V1/);
+    assert.match(calls, /TARGET_EXACT_HEAD_MATCHES/);
   });
 });
 

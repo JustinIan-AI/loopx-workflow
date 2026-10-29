@@ -84,6 +84,11 @@ if [[ "$args" == *"--check-result"* ]]; then
   exit 0
 fi
 
+if [[ "$args" == *"pr-review"* && "$args" == *"--format json"* ]]; then
+  echo '{"schema_version":"pull_request_review_packet_v0","repository":"local/sim","pull_requests":[]}'
+  exit 0
+fi
+
 if [[ "$args" == *"change-quality verify"* ]]; then
   echo '{"ok": true, "enabled": false, "status": "receipt_valid", "receipt_state": "recorded"}'
   exit 0

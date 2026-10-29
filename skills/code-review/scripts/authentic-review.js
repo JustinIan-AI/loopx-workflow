@@ -241,28 +241,60 @@ function main() {
   }
 
   // --- INV3: loopx check-result consistency gate ---
-  // Full adaptation of loopx pull_request_review_result_v1 (packet from scan
-  // mode + 5 evidence classes) is a registered carryover gap. Until then a
-  // rejection is an integrity gap: published honestly, verdict capped via
-  // carryover (INV4), never silently dropped.
+  // The packet must be a real pull_request_review_packet_v0 obtained from the
+  // loopx pr-review scan (it carries the pull_requests array); the result file
+  // MUST be written before invoking --check-result. Full v1 evidence-class
+  // adaptation remains a registered carryover gap: a rejection is published
+  // honestly, verdict capped via carryover (INV4), never silently dropped.
   const packetPath = path.join(os.tmpdir(), `loopx-pr-review-packet-${o.pr}.json`);
-  fs.writeFileSync(packetPath, JSON.stringify({ schemaVersion: 'authentic_review_result_v1', pr: Number(o.pr), head_oid: headOid, result: review }, null, 2));
+  const resultPath = packetPath.replace(/\.json$/, '.result.json');
   const loopxAvail = sh('which', ['loopx']).status === 0;
   let checkResultGap = false;
+  const registerCheckResultGap = (detail) => {
+    checkResultGap = true;
+    console.error(`[CHECK_RESULT_INTEGRITY_GAP] ${detail}`);
+    carryover.push({ finding: { file: 'skills/code-review/scripts/authentic-review.js', severity: 'blocker', summary: detail }, status: 'reproducible' });
+    if (review.verdict === 'approve') {
+      review.verdict = 'request_changes';
+      console.log('[CAPPED] check-result integrity gap -> verdict capped at request_changes');
+    }
+  };
   if (loopxAvail) {
-    const cr = sh('loopx', ['pr-review', '--check-result', packetPath.replace(/\.json$/, '.result.json'), '--packet', packetPath]);
-    fs.writeFileSync(packetPath.replace(/\.json$/, '.result.json'), JSON.stringify(review, null, 2));
-    if (cr.status !== 0) {
-      checkResultGap = true;
-      const detail = `loopx pr-review --check-result rejected (pull_request_review_result_v1 adaptation pending): ${(cr.stderr || cr.stdout || '').slice(0, 160).replace(/\n/g, ' ')}`;
-      console.error(`[CHECK_RESULT_INTEGRITY_GAP] ${detail}`);
-      carryover.push({ finding: { file: 'skills/code-review/scripts/authentic-review.js', severity: 'blocker', summary: detail }, status: 'reproducible' });
-      if (review.verdict === 'approve') {
-        review.verdict = 'request_changes';
-        console.log('[CAPPED] check-result integrity gap -> verdict capped at request_changes');
-      }
+    const scan = sh('loopx', ['pr-review', '--repo', o.repo, '--format', 'json', '--state', 'open', '--limit', '50']);
+    let packet = null;
+    try { packet = JSON.parse(scan.stdout || ''); } catch (_) { /* non-json scan output */ }
+    if (!packet || !Array.isArray(packet.pull_requests)) {
+      registerCheckResultGap(`could not obtain pull_request_review_packet_v0 from loopx pr-review scan: ${(scan.stderr || scan.stdout || '').slice(0, 160).replace(/\n/g, ' ')}`);
     } else {
-      console.log('[✓] loopx check-result: consistent.');
+      fs.writeFileSync(packetPath, JSON.stringify(packet, null, 2));
+      const reviewBody = fiveBlock({
+        prId: o.pr, branch: head.headRefName, headOid,
+        diffStats: `${head.changedFiles ?? '?'} files changed`,
+        feature, contractSha,
+        gates: gateResults,
+        verdict: review.verdict,
+        declaration: review.declaration,
+        findings: review.findings,
+        disputed,
+        antiEntropy: 'model-agent audited (delete-first verified in review prompt)',
+        carryover,
+      });
+      const checkResult = {
+        schema_version: 'pull_request_review_result_v1',
+        target_exact_head: `${o.pr}@${headOid.toLowerCase()}`,
+        review_body: reviewBody,
+        verdict: review.verdict,
+        findings: review.findings,
+        declaration: review.declaration,
+      };
+      // Timing invariant: write the result file BEFORE check-result reads it.
+      fs.writeFileSync(resultPath, JSON.stringify(checkResult, null, 2));
+      const cr = sh('loopx', ['pr-review', '--check-result', resultPath, '--packet', packetPath]);
+      if (cr.status !== 0) {
+        registerCheckResultGap(`loopx pr-review --check-result rejected (pull_request_review_result_v1 adaptation pending): ${(cr.stderr || cr.stdout || '').slice(0, 160).replace(/\n/g, ' ')}`);
+      } else {
+        console.log('[✓] loopx check-result: consistent.');
+      }
     }
   } else {
     console.log('[CHECK_RESULT_SKIPPED] loopx not installed; verdict published unverified by control plane.');
