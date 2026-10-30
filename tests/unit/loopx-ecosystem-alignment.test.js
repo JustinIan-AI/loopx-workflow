@@ -62,3 +62,17 @@ test('6. loopx-flow respond subcommand exists and displays help', () => {
   // Should handle respond or display usage
   assert.match(res.stderr + res.stdout, /respond <pr_id>|针对 Review 意见的更新与验证汇报/, 'Must provide respond subcommand');
 });
+test("7. Key Code Explanations: buildBody explains changes per file rather than flat paths", () => {
+  const scriptContent = fs.readFileSync(AUTHENTIC_REVIEW_SCRIPT, "utf8");
+  assert.strictEqual(scriptContent.includes("describeFile"), true, "Must have describeFile helper");
+  assert.strictEqual(scriptContent.includes("具体改动 / Changes (关键代码讲解)"), true, "Header must follow PR #7545 format");
+  assert.strictEqual(scriptContent.includes("extractMotivation"), true, "Must extract motivation robustly");
+  assert.strictEqual(scriptContent.includes("extractApproach"), true, "Must extract approach robustly");
+});
+
+test("8. Response Safety & Tap Isolation: cmd_respond produces isolated matrix without leaking raw test logs", () => {
+  const flowCode = fs.readFileSync(LOOPX_FLOW, "utf8");
+  // Must not have unquoted heredoc command substitution
+  assert.doesNotMatch(flowCode, /cat\s*<<\s*RESPEOF[\s\S]*?npm\s*test/, "cmd_respond must not embed npm test inside unquoted heredoc");
+  assert.match(flowCode, /pr-response-.*\.md/, "cmd_respond must generate markdown file safely");
+});
