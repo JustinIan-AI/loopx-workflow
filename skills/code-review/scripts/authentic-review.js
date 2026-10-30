@@ -143,7 +143,7 @@ function fiveBlock(o) {
 }
 
 function buildBody(feature, diff) {
-  const files = [...new Set([...diff.matchAll(/^diff --git\/(.+?) b\/(.+?)$/gm)].map(m => m[2]))];
+  const files = [...new Set([...diff.matchAll(/^diff --git a\/(.+?) b\/(.+?)$/gm)].map(m => m[2]))];
   const fileList = files.length ? files.map(f => "- `" + f + "`").join("\n") : null;
   let body = "";
   body += "## 动机 / Motivation\n\n" + (capsuleSection(feature, "02-prd.md", 2000) && capsuleSection(feature, "02-prd.md", 2000).split("## 2.")[0] || "NOT_PROVIDED") + "\n\n";

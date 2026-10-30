@@ -468,6 +468,10 @@ HELPTXT
 
     local head_oid
     head_oid="$(gh pr view "$pr_id" --json headRefOid --jq .headRefOid 2>/dev/null || echo "")"
+    if [[ -z "$head_oid" ]]; then
+        echo -e "${RED}[-] [FAIL-CLOSED] 无法获取 PR #$pr_id 的 HEAD commit，PR 不存在或无访问权限！${NC}" >&2
+        exit 1
+    fi
     local short_sha="${head_oid:0:9}"
 
     echo -e "${BLUE}==> [Review 回复] 执行门禁实测并生成针对 PR #$pr_id Review 意见的更新汇报 (Commit $short_sha)...${NC}"
@@ -511,11 +515,11 @@ HELPTXT
     # 动态抓取上一轮 Review findings 生成结构化响应
     local findings_summary
     findings_summary="$(node -e '
-        const { execSync } = require("child_process");
+        const { execFileSync } = require("child_process");
         try {
-            const commentsJson = execSync("gh pr view " + process.argv[1] + " --json comments --jq .comments", { encoding: "utf8" });
+            const commentsJson = execFileSync("gh", ["pr", "view", process.argv[1], "--json", "comments", "--jq", ".comments"], { encoding: "utf8" });
             const comments = JSON.parse(commentsJson);
-            const reviewComments = comments.filter(c => c.body.includes("5-Block 交付审查报告"));
+            const reviewComments = comments.filter(c => c.body && c.body.includes("5-Block 交付审查报告"));
             if (!reviewComments.length) {
                 process.stdout.write("本次提交已通过本地四大硬门禁与 LoopX 质量门禁全绿校验，保持代码整洁与契约一致。");
                 process.exit(0);
