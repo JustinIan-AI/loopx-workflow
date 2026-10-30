@@ -36,3 +36,9 @@ coverage/
 
 # Test mock binaries
 .tmp-mock-bin*
+
+# LoopX private runtime registry & state (boundary compliance)
+.loopx/registry.json
+.loopx/state/
+.loopx/cache/
+.loopx/*.sqlite*
