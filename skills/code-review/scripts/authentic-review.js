@@ -74,7 +74,7 @@ function buildPrompt(headOid, diff, contractSummary) {
     'Focus: real defects, security, fail-closed violations, zombie code, contract drift.',
     'For every finding give a concrete repro when possible. Do not pad; no findings means empty array.',
     'Respond with ONE fenced json block using exactly this schema:',
-    '{"schemaVersion":"authentic_review_result_v1","verdict":"approve|request_changes","findings":[{"file":"...","line":1,"severity":"blocker|major|minor|advisory","summary":"...","repro":"..."}],"declaration":{"reviewer":"codex","model":"<your runtime model name>","declaration":"runtime_reported"},"headOid":"' + headOid + '"}',
+    '{"schemaVersion":"authentic_review_result_v1","verdict":"approve|request_changes","dimensions":{"delivery":"complete|fragmented","long_horizon":"proven|not_yet_proven","user_experience":"clear|regression"},"findings":[{"file":"...","line":1,"severity":"blocker|major|minor|advisory","summary":"...","repro":"..."}],"declaration":{"reviewer":"codex","model":"<your runtime model name>","declaration":"runtime_reported"},"headOid":"' + headOid + '"}',
     '',
     '=== CAPSULE CONTRACT SUMMARY ===',
     contractSummary || 'NOT_PROVIDED',
@@ -149,7 +149,7 @@ function buildBody(feature, diff) {
   body += "## 动机 / Motivation\n\n" + (capsuleSection(feature, "02-prd.md", 2000) && capsuleSection(feature, "02-prd.md", 2000).split("## 2.")[0] || "NOT_PROVIDED") + "\n\n";
   body += "## 改动思路 / Approach\n\n" + (capsuleSection(feature, "01-decisions.md", 2000) && capsuleSection(feature, "01-decisions.md", 2000).split("## 2.")[0] || "NOT_PROVIDED") + "\n\n";
   body += "## 具体改动 / Changes\n\n" + (fileList ? "涉及文件：\n" + fileList : "NOT_PROVIDED") + "\n\n";
-  body += "## 对主干的风险 / Risks\n\n" + (capsuleSection(feature, "02-prd.md", 6000) && (capsuleSection(feature, "02-prd.md", 6000).match(/## 5\.[\s\S]*?(?=\n## |$)/) || [])[0] || "NOT_PROVIDED") + "\n\n";
+  body += "## 对主干的风险 / Risks\n\n" + (capsuleSection(feature, "02-prd.md", 6000) && (capsuleSection(feature, "02-prd.md", 6000).match(/## (?:[245]\.|.*?(?:假设|风险|Risk))[\s\S]*?(?=\n## [0-9]|$)/) || [])[0] || "NOT_PROVIDED") + "\n\n";
   body += "### 验证矩阵\n\n| Check | Result | Details |\n|---|---|---|\n| `npm run typecheck` | PASSED | TypeScript strict noEmit (0 errors) |\n| `npm run lint` | PASSED | Shell syntax & JS AST clean |\n| `npm run build` | PASSED | All binaries and permissions verified |\n| `npm test` | PASSED | Unit tests pass |\n| `loopx status` | PASSED | ok: True (errors: 0, warnings: 0) |\n";
   return body;
 }
