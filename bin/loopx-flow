@@ -541,7 +541,7 @@ HELPTXT
     ' "$pr_id" 2>/dev/null || echo "已完成代码审查意见的针对性修复，本地四大硬门禁与 LoopX 质量凭证 100% 全绿。")"
 
     local report_file
-    report_file="$(mktemp /tmp/pr-response-XXXXXX.md)"
+    report_file="$(mktemp /tmp/pr-response-XXXXXX)"
     cat << 'RESPEOF' > "$report_file"
 ### 针对 Review 意见的更新与验证汇报 (Commit `__SHORT_SHA__`)
 
