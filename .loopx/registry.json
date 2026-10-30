@@ -1,6 +1,6 @@
 {
   "schema_version": "0.1",
-  "updated_at": "2026-10-28T18:35:29+08:00",
+  "updated_at": "2026-10-30T11:40:17+08:00",
   "common_runtime_root": "/Users/freecisco_yan/.codex/loopx",
   "goals": [
     {
@@ -636,6 +636,83 @@
           "enabled": true,
           "safe_fix": false,
           "strict_receipt": true
+        }
+      }
+    },
+    {
+      "id": "fail-closed-hardening-goal",
+      "display_name": "Feature: fail-closed-hardening",
+      "domain": "project-goal-control-plane",
+      "status": "active",
+      "role": "controller",
+      "parent_goal_id": null,
+      "repo": "/Users/freecisco_yan/Documents/trae_projects/loopx-workflow",
+      "state_file": ".codex/goals/fail-closed-hardening-goal/ACTIVE_GOAL_STATE.md",
+      "authority_sources": [],
+      "adapter": {
+        "kind": "generic_project_goal_v0",
+        "status": "connected"
+      },
+      "spawn_policy": {
+        "mode": "default",
+        "allowed": false,
+        "max_children": 3,
+        "allowed_domains": []
+      },
+      "coordination": {
+        "write_scope": [],
+        "requires_parent_approval": [
+          "write",
+          "publish",
+          "production-action"
+        ],
+        "storage_target": {
+          "schema_version": "loopx_new_goal_storage_target_v1",
+          "provider": "sqlite",
+          "handoff_mode": "hard_lease"
+        }
+      },
+      "execution_profile": {
+        "cadence": "bounded_progress_segment",
+        "minimum_scale": "multi_surface_or_implementation",
+        "must_include": [
+          "coherent_artifact",
+          "targeted_validation",
+          "state_writeback"
+        ],
+        "spend_rule": "spend_only_after_artifact_validation_writeback",
+        "outcome_floor": {
+          "required_when": "after_surface_progress_streak",
+          "surface_streak_threshold": 3,
+          "outcome_markers": [],
+          "surface_only_hints": [],
+          "must_advance": [
+            "primary_goal_outcome"
+          ],
+          "avoid": [
+            "surface_only_progress_loop"
+          ],
+          "if_unavailable": "report_blocker_without_spend"
+        },
+        "degradation_policy": {
+          "small_scale_streak_threshold": 2,
+          "on_degradation": "require_blocker_or_expand_next_batch"
+        }
+      },
+      "next_probe": "loopx --registry .loopx/registry.json check --scan-root /Users/freecisco_yan/Documents/trae_projects/loopx-workflow",
+      "guards": [
+        "read-only by default",
+        "do not mutate production systems without explicit user approval",
+        "keep private evidence out of public commits"
+      ],
+      "creation_operation_id": "goal-create:720c9675ecd24042959ba0553b839424",
+      "control_plane": {
+        "progress_review": {
+          "schema_version": "progress_review_policy_v0",
+          "mode": "off",
+          "signal": "noul",
+          "drift_threshold": 2,
+          "contract_revision": "b1272c4f08886f6c7fba236902b24a8ff232d9a3d558f83d66092685f3b8c1ef"
         }
       }
     }
