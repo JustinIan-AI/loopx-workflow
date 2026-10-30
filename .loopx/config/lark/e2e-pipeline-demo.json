@@ -1,0 +1,18 @@
+{
+  "schema_version": "lark_event_inbox_config_v0",
+  "enabled": true,
+  "inbox_dir": ".loopx/inbox/e2e-pipeline-demo",
+  "capture_scope": "configured_chat_all",
+  "reply": {
+    "enabled": true,
+    "sender_profile": "cli_aa6946a46af9dc09",
+    "sender_identity": "bot",
+    "bot_display_name": "loopx管家",
+    "bot_app_id": "cli_aa6946a46af9dc09",
+    "chat_id": "oc_2e6dd51b598d2d907fe43d5e273d9696",
+    "placement_policy": "source_thread",
+    "editorial_style": "concise",
+    "received_reaction_emoji": "Get",
+    "processing_reaction_emoji": "OnIt"
+  }
+}
