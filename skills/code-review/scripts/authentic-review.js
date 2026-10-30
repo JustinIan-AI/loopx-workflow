@@ -150,7 +150,26 @@ function buildBody(feature, diff) {
   body += "## 改动思路 / Approach\n\n" + (capsuleSection(feature, "01-decisions.md", 2000) && capsuleSection(feature, "01-decisions.md", 2000).split("## 2.")[0] || "NOT_PROVIDED") + "\n\n";
   body += "## 具体改动 / Changes\n\n" + (fileList ? "涉及文件：\n" + fileList : "NOT_PROVIDED") + "\n\n";
   body += "## 对主干的风险 / Risks\n\n" + (capsuleSection(feature, "02-prd.md", 6000) && (capsuleSection(feature, "02-prd.md", 6000).match(/## (?:[245]\.|.*?(?:假设|风险|Risk))[\s\S]*?(?=\n## [0-9]|$)/) || [])[0] || "NOT_PROVIDED") + "\n\n";
-  body += "### 验证矩阵\n\n| Check | Result | Details |\n|---|---|---|\n| `npm run typecheck` | PASSED | TypeScript strict noEmit (0 errors) |\n| `npm run lint` | PASSED | Shell syntax & JS AST clean |\n| `npm run build` | PASSED | All binaries and permissions verified |\n| `npm test` | PASSED | Unit tests pass |\n| `loopx status` | PASSED | ok: True (errors: 0, warnings: 0) |\n";
+  
+  // Extract fresh matrix from 05-evidence.md if available, otherwise run fresh gates
+  let matrix = "";
+  const evFile = path.join("specs", "features", feature, "05-evidence.md");
+  if (fs.existsSync(evFile)) {
+    const evText = fs.readFileSync(evFile, "utf8");
+    const mMatch = evText.match(/### 验证矩阵[\s\S]*?(?=\n## |$)/);
+    if (mMatch) {
+      matrix = mMatch[0];
+    }
+  }
+  if (!matrix) {
+    const g = gates();
+    matrix = "### 验证矩阵\n\n| Check | Result |\n|---|---|\n" +
+      `| \`npm run typecheck\` | ${g.typecheck} |\n` +
+      `| \`npm run lint\` | ${g.lint} |\n` +
+      `| \`npm run build\` | ${g.build} |\n` +
+      `| \`npm test\` | ${g.test} |\n`;
+  }
+  body += matrix + "\n";
   return body;
 }
 
@@ -276,6 +295,7 @@ function main() {
         gates: gateResults,
         verdict: review.verdict,
         declaration: review.declaration,
+        dimensions: review.dimensions,
         findings: review.findings,
         disputed,
         antiEntropy: 'model-agent audited (delete-first verified in review prompt)',
@@ -310,6 +330,7 @@ function main() {
     gates: gateResults,
     verdict: review.verdict,
     declaration: review.declaration,
+    dimensions: review.dimensions,
     findings: review.findings,
     disputed,
     antiEntropy: checkResultGap
