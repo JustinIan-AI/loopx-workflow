@@ -1,0 +1,17 @@
+{
+  "schema_version": "lark_event_collector_config_v1",
+  "enabled": true,
+  "service_name": "loopx-lark-collector",
+  "event_key": "im.message.receive_v1",
+  "identity": "bot",
+  "supervisor": "launchd",
+  "consume_timeout": "30m",
+  "lark_cli_bin": "lark-cli",
+  "routes": [
+    {
+      "route_key": "e2e-pipeline-demo",
+      "chat_id": "oc_2e6dd51b598d2d907fe43d5e273d9696",
+      "event_inbox_config": ".loopx/config/lark/e2e-pipeline-demo.json"
+    }
+  ]
+}
