@@ -1,6 +1,6 @@
 {
   "schema_version": "0.1",
-  "updated_at": "2026-10-30T11:40:17+08:00",
+  "updated_at": "2026-10-30T13:47:04+08:00",
   "common_runtime_root": "/Users/freecisco_yan/.codex/loopx",
   "goals": [
     {
@@ -712,7 +712,7 @@
           "mode": "off",
           "signal": "noul",
           "drift_threshold": 2,
-          "contract_revision": "b1272c4f08886f6c7fba236902b24a8ff232d9a3d558f83d66092685f3b8c1ef"
+          "contract_revision": "d5023ab070e0982a219a0536d4231ec8eda718542c40fd63be3c9539e45816b1"
         }
       },
       "activation": {

@@ -1,1 +1,1 @@
-{"acquired_at":"2026-10-30T03:59:06.637795Z","agent_id":"unknown","host":"JundeMacBook-Air.local","lock_id":"f976fe4a7730282f","operation":"set_goal_activation_state","pid":75339,"policy":"mutation","released_at":"2026-10-30T03:59:06.644467Z","schema_version":"file_lock_holder_v0"}
+{"acquired_at":"2026-10-30T05:47:04.313751Z","agent_id":"unknown","host":"JundeMacBook-Air.local","lock_id":"f976fe4a7730282f","operation":"configure_goal_with_global_sync","pid":13546,"policy":"mutation","released_at":"2026-10-30T05:47:04.411123Z","schema_version":"file_lock_holder_v0"}
