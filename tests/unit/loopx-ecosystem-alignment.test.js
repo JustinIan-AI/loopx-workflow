@@ -101,3 +101,21 @@ test("12. Multi-Severity Review Response: cmd_respond regex recognizes P0-P3 in 
   const flowCode = fs.readFileSync(LOOPX_FLOW, "utf8");
   assert.match(flowCode, /blocker|major|minor|advisory|P0|P1|P2|P3/i, "cmd_respond must match P0-P3 severities");
 });
+
+test("13. PR Submission Generator: loopx-flow pr exists, displays help and enforces fail-closed branch guard", () => {
+  const res = spawnSync(LOOPX_FLOW, ["pr", "--help"], { encoding: "utf8" });
+  assert.match(res.stderr + res.stdout, /loopx-flow pr <create\|preview\|update>|按照 LoopX PR #7545 官方标准/, "Must provide pr subcommand with actions");
+
+  const flowCode = fs.readFileSync(LOOPX_FLOW, "utf8");
+  assert.match(flowCode, /current_branch.*==.*main/, "cmd_pr must fail closed on main branch");
+});
+
+test("14. PR #7545 Body Generation: authentic-review --generate-pr-body outputs complete 4-Part structure", () => {
+  const res = spawnSync("node", [AUTHENTIC_REVIEW_SCRIPT, "--generate-pr-body", "--feature", "loopx-ecosystem-alignment"], { encoding: "utf8" });
+  assert.strictEqual(res.status, 0, res.stderr);
+  assert.match(res.stdout, /## 动机 \/ Motivation/, "Must include Motivation header");
+  assert.match(res.stdout, /## 改动思路 \/ Approach/, "Must include Approach header");
+  assert.match(res.stdout, /## 具体改动 \/ Changes/, "Must include Changes header");
+  assert.match(res.stdout, /## 对主干的风险 \/ Risks/, "Must include Risks header");
+  assert.match(res.stdout, /### 验证矩阵/, "Must include Verification Matrix");
+});

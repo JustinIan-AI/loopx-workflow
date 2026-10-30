@@ -22,7 +22,10 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === '--cross-validate') o.crossValidate = true;
     else if (a === '--rebuild-body') o.rebuildBody = true;
+    else if (a === '--generate-pr-body' || a === '--preview-pr-body') o.generatePrBody = true;
     else if (a === '--carryover-file') o.carryoverFile = argv[++i];
+    else if (a === '--diff-file') o.diffFile = argv[++i];
+    else if (a === '--output-file') o.outputFile = argv[++i];
     else if (a === '--pr') o.pr = argv[++i];
     else if (a === '--repo') o.repo = argv[++i];
     else if (a === '--feature') o.feature = argv[++i];
@@ -88,7 +91,7 @@ function runReviewAgent(agentBin, prompt, timeoutMs) {
   const which = sh('which', [agentBin]);
   if (which.status !== 0) return { unavailable: true };
   const args = agentBin.includes('claude') ? ['-p', prompt] : ['exec', prompt];
-  const r = sh(agentBin, args, timeoutMs || TIMEOUT_MS);
+  const r = spawnSync(agentBin, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024, timeout: timeoutMs || TIMEOUT_MS });
   if (r.status !== 0) return { error: `exit ${r.status}: ${(r.stderr || r.stdout || '').slice(0, 300)}` };
   return { stdout: r.stdout };
 }
@@ -310,6 +313,32 @@ function buildBody(feature, diff) {
 
 function main() {
   const o = parseArgs(process.argv);
+  if (o.generatePrBody) {
+    let feature = o.feature || "";
+    if (!feature) {
+      const branchRes = sh("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
+      const branch = branchRes.stdout ? branchRes.stdout.trim() : "";
+      if (branch.startsWith("feature/")) feature = branch.replace(/^feature\//, "");
+      else if (branch.startsWith("fix/")) feature = branch.replace(/^fix\//, "");
+    }
+    let diff = "";
+    if (o.diffFile && fs.existsSync(o.diffFile)) {
+      diff = fs.readFileSync(o.diffFile, "utf8");
+    } else if (o.pr && o.repo) {
+      diff = prDiff(o.repo, o.pr);
+    } else {
+      const diffRes = sh("git", ["diff", "origin/main...HEAD"]);
+      diff = (diffRes.status === 0 && diffRes.stdout) ? diffRes.stdout : (sh("git", ["diff", "main...HEAD"]).stdout || "");
+    }
+    const body = buildBody(feature, diff);
+    if (o.outputFile) {
+      fs.writeFileSync(o.outputFile, body, "utf8");
+      console.log(`[✓] Generated PR #7545 compliant body to ${o.outputFile}`);
+    } else {
+      process.stdout.write(body + "\n");
+    }
+    process.exit(0);
+  }
   if (!o.pr || !o.repo) { console.error('usage: authentic-review.js --pr N --repo owner/name [--feature f] [--rebuild-body] [--cross-validate] [--carryover-file f]'); process.exit(2); }
   const feature = o.feature || '';
 

@@ -32,6 +32,7 @@ usage() {
   feature <name>          开启新特性管线，生成 specs/features/<name> 资产包与 Goal (阶段 0~4)
   approve contract <name> 【断点 1】方案与契约审批，锁定 SHA256 契约基线并放行 TDD 编码
   check [--with-ocr]      执行四大硬门禁与代码审查，生成并校验 LoopX change-quality 严格收据
+  pr <action> [feature]   按 PR #7545 官方标准从胶囊生成 4-Part 描述并提交/预览/更新 PR (create|preview|update)
   review <pr_id>          执行 L2 交付审查并顶置 5-Block 报告至 GitHub PR
   respond <pr_id>         按 PR #7545 规范提交针对 Review 意见的更新与验证汇报
   merge <pr_id> [feature] 【断点 2】核验 HEAD SHA 与 Approve 决议，Squash 合入并原子归档资产包
@@ -583,6 +584,143 @@ HELPTXT
     fi
 }
 
+cmd_pr() {
+    local sub="${1:-}"
+    shift || true
+
+    if [[ "$sub" == "--help" || "$sub" == "-h" || -z "$sub" ]]; then
+        cat << 'HELPTXT'
+用法:
+  loopx-flow pr create [feature] [--title "feat(...)"]
+  loopx-flow pr preview [feature]
+  loopx-flow pr update <pr_id> [feature]
+
+说明:
+  按照 LoopX PR #7545 官方标准，从特性胶囊与真实 Git Diff 自动生成双语 4-Part 结构的 PR 描述（包含动机剖析、架构思路、关键代码逐文件讲解、主干风险及四大门禁实测矩阵），并直接发起或更新 GitHub PR。
+HELPTXT
+        exit 0
+    fi
+
+    local current_branch
+    current_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
+    if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
+        echo -e "${RED}[-] [FAIL-CLOSED] 严禁在主干分支直接操作 PR。请检出特性分支 (feature/<name>)。${NC}" >&2
+        exit 1
+    fi
+
+    local feature=""
+    local title=""
+    local pr_id=""
+
+    case "$sub" in
+        preview)
+            feature="${1:-}"
+            if [[ -z "$feature" ]]; then
+                if [[ "$current_branch" =~ ^feature/(.+) ]]; then
+                    feature="${BASH_REMATCH[1]}"
+                elif [[ "$current_branch" =~ ^fix/(.+) ]]; then
+                    feature="${BASH_REMATCH[1]}"
+                fi
+            fi
+            if [[ -z "$feature" ]]; then
+                echo -e "${RED}[-] 错误: 请指定特性名称或检出 feature/<name> 分支。${NC}" >&2
+                exit 1
+            fi
+            node "$PROJECT_ROOT/skills/code-review/scripts/authentic-review.js" --generate-pr-body --feature "$feature"
+            ;;
+        create)
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    --title)
+                        title="$2"
+                        shift 2
+                        ;;
+                    *)
+                        if [[ -z "$feature" ]]; then
+                            feature="$1"
+                        fi
+                        shift
+                        ;;
+                esac
+            done
+
+            if [[ -z "$feature" ]]; then
+                if [[ "$current_branch" =~ ^feature/(.+) ]]; then
+                    feature="${BASH_REMATCH[1]}"
+                elif [[ "$current_branch" =~ ^fix/(.+) ]]; then
+                    feature="${BASH_REMATCH[1]}"
+                fi
+            fi
+            if [[ -z "$feature" ]]; then
+                echo -e "${RED}[-] 错误: 请指定特性名称或检出 feature/<name> 分支。${NC}" >&2
+                exit 1
+            fi
+
+            if ! command -v gh >/dev/null 2>&1; then
+                echo -e "${RED}[-] 错误: 未安装 gh CLI，无法自动创建 PR。${NC}" >&2
+                exit 1
+            fi
+
+            if [[ -z "$title" ]]; then
+                title="feat(${feature}): implement ${feature} aligned with PR #7545 protocol"
+            fi
+
+            local tmp_body
+            tmp_body="$(mktemp "${TMPDIR:-/tmp}/pr-body-${feature}-XXXXXX.md")"
+            node "$PROJECT_ROOT/skills/code-review/scripts/authentic-review.js" --generate-pr-body --feature "$feature" --output-file "$tmp_body"
+
+            echo -e "${BLUE}==> [PR 提交] 正在通过 GitHub CLI 创建 PR (对齐 PR #7545 双语 4-Part 体系)...${NC}"
+            local pr_url
+            if pr_url="$(gh pr create --title "$title" --body-file "$tmp_body" "$@")"; then
+                rm -f "$tmp_body"
+                echo -e "${GREEN}[✓] PR 创建成功: ${pr_url}${NC}"
+            else
+                rm -f "$tmp_body"
+                echo -e "${RED}[-] PR 创建失败。${NC}" >&2
+                exit 1
+            fi
+            ;;
+        update)
+            pr_id="${1:-}"
+            shift || true
+            feature="${1:-}"
+            if [[ -z "$pr_id" ]]; then
+                echo -e "${RED}[-] 错误: 请指定待更新的 PR 编号，例如: loopx-flow pr update 13${NC}" >&2
+                exit 1
+            fi
+            if [[ -z "$feature" ]]; then
+                if [[ "$current_branch" =~ ^feature/(.+) ]]; then
+                    feature="${BASH_REMATCH[1]}"
+                elif [[ "$current_branch" =~ ^fix/(.+) ]]; then
+                    feature="${BASH_REMATCH[1]}"
+                fi
+            fi
+            if [[ -z "$feature" ]]; then
+                echo -e "${RED}[-] 错误: 请指定特性名称或检出 feature/<name> 分支。${NC}" >&2
+                exit 1
+            fi
+
+            local tmp_body
+            tmp_body="$(mktemp "${TMPDIR:-/tmp}/pr-body-${feature}-XXXXXX.md")"
+            node "$PROJECT_ROOT/skills/code-review/scripts/authentic-review.js" --generate-pr-body --feature "$feature" --output-file "$tmp_body"
+
+            echo -e "${BLUE}==> [PR 更新] 正在更新 PR #${pr_id} 描述 (对齐 PR #7545 双语 4-Part 体系)...${NC}"
+            if gh pr edit "$pr_id" --body-file "$tmp_body"; then
+                rm -f "$tmp_body"
+                echo -e "${GREEN}[✓] PR #${pr_id} 描述已成功更新！${NC}"
+            else
+                rm -f "$tmp_body"
+                echo -e "${RED}[-] PR 更新失败。${NC}" >&2
+                exit 1
+            fi
+            ;;
+        *)
+            echo -e "${RED}[-] 未知操作: $sub。可用操作: create, preview, update${NC}" >&2
+            exit 1
+            ;;
+    esac
+}
+
 cmd_merge() {
     local pr_id="${1:-}"
     local feature="${2:-}"
@@ -1074,6 +1212,7 @@ case "$ACTION" in
     feature|start) cmd_feature "$@" ;;
     approve) cmd_approve "$@" ;;
     check) cmd_check "$@" ;;
+    pr) cmd_pr "$@" ;;
     review) cmd_review "$@" ;;
     respond) cmd_respond "$@" ;;
     merge) cmd_merge "$@" ;;
