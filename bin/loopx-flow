@@ -510,7 +510,12 @@ cmd_merge() {
 
     if command -v loopx >/dev/null 2>&1 && [[ -n "$feature" ]]; then
         local goal_id="${feature}-goal"
-        loopx goal-lifecycle --goal-id "$goal_id" --operation stop --actor-kind controller --reason "Feature delivered and archived" --execute 2>/dev/null || true
+        if ! loopx goal-lifecycle --goal-id "$goal_id" --operation stop --actor-kind controller --reason "Feature delivered and archived" --execute; then
+            echo -e "${RED}[-] [FAIL-CLOSED] LoopX Goal $goal_id 闭环核销失败！${NC}" >&2
+            echo -e "💡 为什么阻断？Goal 核销失败可能导致控制面状态残留或后续同名特性冲突。" >&2
+            echo -e "🛠️ 修复指令: 手动核销 Goal: loopx goal-lifecycle --goal-id $goal_id --operation stop --actor-kind controller --reason \"Manual closure\" --execute" >&2
+            exit 1
+        fi
         loopx sync-global 2>/dev/null || true
         echo -e "    ${GREEN}[✓] LoopX Goal $goal_id 已闭环核销！${NC}"
     fi
@@ -575,28 +580,48 @@ cmd_gate() {
 
             local goal_id="${feature}-goal"
             local locked_sha=""
+            local goal_found="false"
             local reg_file="$PROJECT_ROOT/.loopx/registry.json"
             if [[ -f "$reg_file" ]]; then
-                locked_sha="$(node -e '
+                local check_info
+                check_info="$(node -e '
                     const fs = require("fs");
                     try {
                         const reg = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
                         const g = reg.goals?.find(item => item.id === process.argv[2] || item.goal_id === process.argv[2]);
-                        const rev = g?.control_plane?.progress_review?.contract_revision || g?.progress_review?.contract_revision || "";
-                        process.stdout.write(rev);
+                        if (!g) {
+                            process.stdout.write("NOT_FOUND:");
+                        } else {
+                            const rev = g?.control_plane?.progress_review?.contract_revision || g?.progress_review?.contract_revision || "";
+                            process.stdout.write("FOUND:" + rev);
+                        }
                     } catch (e) {
-                        process.stdout.write("");
+                        process.stdout.write("NOT_FOUND:");
                     }
-                ' "$reg_file" "$goal_id" 2>/dev/null || echo "")"
+                ' "$reg_file" "$goal_id" 2>/dev/null || echo "NOT_FOUND:")"
+
+                if [[ "$check_info" =~ ^FOUND:(.*) ]]; then
+                    goal_found="true"
+                    locked_sha="${BASH_REMATCH[1]}"
+                fi
             fi
 
-            if [[ -n "$locked_sha" && "$locked_sha" != "$current_sha" ]]; then
-                echo -e "${RED}[-] [FAIL-CLOSED] 契约已被篡改 (CONTRACT_TAMPERED)! 契约指纹不一致，门禁物理熔断！${NC}" >&2
-                echo -e "    文件当前 SHA256: ${BOLD}$current_sha${NC}" >&2
-                echo -e "    已锁定基线指纹: ${BOLD}$locked_sha${NC}" >&2
-                echo -e "💡 为什么阻断？契约在批准后发生非授权变更，严禁在未重新审批的情况下私自变更接口与断言不变量。" >&2
-                echo -e "🛠️ 修复指令: 还原契约文件修改，或由决策者重新执行: loopx-flow approve contract $feature" >&2
-                exit 1
+            if [[ "$goal_found" == "true" ]]; then
+                if [[ -z "$locked_sha" ]]; then
+                    echo -e "${RED}[-] [FAIL-CLOSED] 契约尚未在 LoopX 控制面锁定指纹 (MISSING_LOCKED_CONTRACT_REVISION)！${NC}" >&2
+                    echo -e "    Goal: $goal_id 存在于 .loopx/registry.json 但未设置 progress_review.contract_revision" >&2
+                    echo -e "💡 为什么阻断？双重锚定要求契约必须具备控制面物理指纹锁定，缺失物理锁定视为未完成审批。" >&2
+                    echo -e "🛠️ 修复指令: 由决策者执行审批以锁定指纹: loopx-flow approve contract $feature" >&2
+                    exit 1
+                fi
+                if [[ "$locked_sha" != "$current_sha" ]]; then
+                    echo -e "${RED}[-] [FAIL-CLOSED] 契约已被篡改 (CONTRACT_TAMPERED)! 契约指纹不一致，门禁物理熔断！${NC}" >&2
+                    echo -e "    文件当前 SHA256: ${BOLD}$current_sha${NC}" >&2
+                    echo -e "    已锁定基线指纹: ${BOLD}$locked_sha${NC}" >&2
+                    echo -e "💡 为什么阻断？契约在批准后发生非授权变更，严禁在未重新审批的情况下私自变更接口与断言不变量。" >&2
+                    echo -e "🛠️ 修复指令: 还原契约文件修改，或由决策者重新执行: loopx-flow approve contract $feature" >&2
+                    exit 1
+                fi
             fi
             echo -e "${GREEN}[✓] [GATE PASS] 阶段 4 契约双重锚定核验通过 (SHA256: $current_sha)${NC}"
             ;;

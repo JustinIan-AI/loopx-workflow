@@ -49,3 +49,24 @@ test('4. ADR-005: package.json and environment version alignment', () => {
   assert.ok(pkg.engines && pkg.engines.node, 'package.json must declare engines.node');
   assert.match(pkg.engines.node, />=22\.22\.3/, 'Node engine must require >=22.22.3');
 });
+
+test("5. ADR-002: Double-anchored Contract Gate: fails closed when contract_revision is missing in registry", () => {
+  const regPath = path.join(PROJECT_ROOT, ".loopx/registry.json");
+  const origReg = fs.readFileSync(regPath, "utf8");
+  try {
+    const reg = JSON.parse(origReg);
+    const g = reg.goals?.find(item => item.id === "fail-closed-hardening-goal" || item.goal_id === "fail-closed-hardening-goal");
+    if (g && g.control_plane?.progress_review) {
+      g.control_plane.progress_review.contract_revision = "";
+    }
+    fs.writeFileSync(regPath, JSON.stringify(reg, null, 2));
+
+    const res = spawnSync(LOOPX_FLOW, ["gate", "verify", "contract", "fail-closed-hardening"], {
+      encoding: "utf8"
+    });
+    assert.strictEqual(res.status, 1, "Must fail gate check when contract_revision is empty in registry");
+    assert.match(res.stderr + res.stdout, /MISSING_LOCKED_CONTRACT_REVISION|尚未在 LoopX 控制面锁定指纹/, "Must output missing revision error");
+  } finally {
+    fs.writeFileSync(regPath, origReg);
+  }
+});
