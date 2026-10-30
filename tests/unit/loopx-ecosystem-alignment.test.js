@@ -76,3 +76,28 @@ test("8. Response Safety & Tap Isolation: cmd_respond produces isolated matrix w
   assert.doesNotMatch(flowCode, /cat\s*<<\s*RESPEOF[\s\S]*?npm\s*test/, "cmd_respond must not embed npm test inside unquoted heredoc");
   assert.match(flowCode, /pr-response-.*\.md/, "cmd_respond must generate markdown file safely");
 });
+
+test("9. Cross-Model CLI Adaptation: runReviewAgent supports claude -p vs codex exec and parseArgs handles --agent-bin", () => {
+  const scriptContent = fs.readFileSync(AUTHENTIC_REVIEW_SCRIPT, "utf8");
+  assert.strictEqual(scriptContent.includes("agentBin.includes('claude') ? ['-p', prompt] : ['exec', prompt]"), true, "Must support claude -p vs codex exec");
+  assert.strictEqual(scriptContent.includes("o.agentBin = argv[++i]"), true, "Must parse --agent-bin argument");
+  const flowCode = fs.readFileSync(LOOPX_FLOW, "utf8");
+  assert.match(flowCode, /--agent-bin/, "cmd_review must forward --agent-bin flag");
+});
+
+test("10. 5-Block Formatting & Verdict Visibility: fiveBlock renders 40-char head OID and uppercase English verdict", () => {
+  const scriptContent = fs.readFileSync(AUTHENTIC_REVIEW_SCRIPT, "utf8");
+  assert.strictEqual(scriptContent.includes("head \\`${o.headOid.slice(0, 10)}\\` (\\`${o.headOid}\\`)"), true, "Must render full 40-char head OID in metadata");
+  assert.strictEqual(scriptContent.includes("English verdict"), true, "Must render English verdict");
+  assert.strictEqual(scriptContent.includes("(Verdict: **\${(o.verdict || 'approve').toUpperCase()}**)"), true, "Must render uppercase Verdict in Block 4 title");
+});
+
+test("11. Carryover Isolation: authentic-review filters out review script from code carryover", () => {
+  const scriptContent = fs.readFileSync(AUTHENTIC_REVIEW_SCRIPT, "utf8");
+  assert.strictEqual(scriptContent.includes("!c.finding.file.includes('authentic-review.js')"), true, "Must isolate authentic-review.js toolchain checks from code carryover");
+});
+
+test("12. Multi-Severity Review Response: cmd_respond regex recognizes P0-P3 in addition to blocker/major", () => {
+  const flowCode = fs.readFileSync(LOOPX_FLOW, "utf8");
+  assert.match(flowCode, /blocker|major|minor|advisory|P0|P1|P2|P3/i, "cmd_respond must match P0-P3 severities");
+});

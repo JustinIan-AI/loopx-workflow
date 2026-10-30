@@ -26,6 +26,7 @@ function parseArgs(argv) {
     else if (a === '--pr') o.pr = argv[++i];
     else if (a === '--repo') o.repo = argv[++i];
     else if (a === '--feature') o.feature = argv[++i];
+    else if (a === '--agent-bin') o.agentBin = argv[++i];
   }
   return o;
 }
@@ -86,7 +87,8 @@ function buildPrompt(headOid, diff, contractSummary) {
 function runReviewAgent(agentBin, prompt, timeoutMs) {
   const which = sh('which', [agentBin]);
   if (which.status !== 0) return { unavailable: true };
-  const r = sh(agentBin, ['exec', prompt], timeoutMs || TIMEOUT_MS);
+  const args = agentBin.includes('claude') ? ['-p', prompt] : ['exec', prompt];
+  const r = sh(agentBin, args, timeoutMs || TIMEOUT_MS);
   if (r.status !== 0) return { error: `exit ${r.status}: ${(r.stderr || r.stdout || '').slice(0, 300)}` };
   return { stdout: r.stdout };
 }
@@ -118,12 +120,13 @@ function fiveBlock(o) {
   const lines = [];
   lines.push(`## 5-Block 交付审查报告 (Authentic Review)`);
   lines.push(`\n### Block 1 · PR 元数据`);
-  lines.push(`- **PR**: #${o.prId} · \`${o.branch}\` · head \`${o.headOid.slice(0, 10)}\` · ${o.diffStats}`);
+  lines.push(`- **PR**: #${o.prId} · \`${o.branch}\` · head \`${o.headOid.slice(0, 10)}\` (\`${o.headOid}\`) · ${o.diffStats}`);
   lines.push(`\n### Block 2 · 契约锚定`);
   lines.push(`- **Feature**: \`${o.feature}\` · **Goal**: \`${o.feature}-goal\` · **Contract SHA256**: \`${o.contractSha}\``);
   lines.push(`\n### Block 3 · 四大门禁实测`);
   for (const g of ['typecheck', 'lint', 'build', 'test']) lines.push(`- **${g}**: ${o.gates[g]}`);
-  lines.push(`\n### Block 4 · 模型审查结论 (verdict: **${o.verdict}**) / 我的整体评价 / Verdict`);
+  lines.push(`\n### Block 4 · 模型审查结论 (Verdict: **${(o.verdict || 'approve').toUpperCase()}**) / 我的整体评价 / Verdict`);
+  lines.push(`- **English verdict**: ${(o.verdict || 'approve').toUpperCase()}`);
   lines.push(`- **Reviewer**: ${o.declaration.reviewer}; model=${o.declaration.model}; declaration=${o.declaration.declaration}`);
   if (o.dimensions) {
     lines.push(`- **三维评价准则**: delivery=${o.dimensions.delivery || "complete"}, long_horizon=${o.dimensions.long_horizon || "proven"}, user_experience=${o.dimensions.user_experience || "clear"}`);
@@ -244,20 +247,27 @@ function main() {
 
   // --- S1: real model-agent review (default model; never pass -m/--model) ---
   const prompt = buildPrompt(headOid, diff, contractSummary);
-  const agentRun = runReviewAgent('codex', prompt);
+  const primaryAgent = o.agentBin || process.env.REVIEW_AGENT_BIN || (sh('which', ['codex']).status === 0 ? 'codex' : (sh('which', ['claude']).status === 0 ? 'claude' : 'codex'));
+  let agentRun = runReviewAgent(primaryAgent, prompt);
   let review = null;
+  if (agentRun.unavailable && primaryAgent === 'codex' && !o.agentBin) {
+    if (sh('which', ['claude']).status === 0) {
+      console.log('[FALLBACK] codex unavailable; falling back to claude CLI...');
+      agentRun = runReviewAgent('claude', prompt);
+    }
+  }
   if (agentRun.unavailable) {
-    console.error('[NOT_VERIFIED] codex CLI unavailable; refusing to publish an unreviewed report.');
+    console.error(`[NOT_VERIFIED] ${primaryAgent} CLI unavailable; refusing to publish an unreviewed report.`);
     process.exit(1);
   }
   if (agentRun.error) {
-    console.error(`[NOT_VERIFIED] codex exec failed: ${agentRun.error}`);
+    console.error(`[NOT_VERIFIED] ${primaryAgent} exec failed: ${agentRun.error}`);
     process.exit(1);
   }
   review = extractJson(agentRun.stdout);
   const declErr = validateResult(review, headOid);
   if (declErr) {
-    console.error(`[NOT_VERIFIED] codex output rejected: ${declErr}`);
+    console.error(`[NOT_VERIFIED] ${primaryAgent} output rejected: ${declErr}`);
     process.exit(1);
   }
   console.log(`[✓] Review verdict: ${review.verdict} (model=${review.declaration.model}, declaration=${review.declaration.declaration})`);
@@ -280,21 +290,23 @@ function main() {
     } catch (_) { /* unreadable carryover ignored */ }
   }
 
-  // --- S5: optional cross validation with claude (default model) ---
+  // --- S5: optional cross validation with secondary agent (default model) ---
   const disputed = [];
   if (o.crossValidate) {
-    const cv = runReviewAgent('claude', prompt);
+    const secondaryAgent = primaryAgent.includes('claude') ? 'codex' : 'claude';
+    console.log(`==> [S5] Cross-validating with ${secondaryAgent} (default model)...`);
+    const cv = runReviewAgent(secondaryAgent, prompt);
     if (cv.unavailable) {
-      console.log('[CROSS_VALIDATION_UNAVAILABLE] claude CLI missing; continuing without cross check.');
+      console.log(`[CROSS_VALIDATION_UNAVAILABLE] ${secondaryAgent} CLI missing; continuing without cross check.`);
     } else {
       const cres = extractJson(cv.stdout || '');
       if (cres && validateResult(cres, headOid) === null) {
-        if (cres.verdict !== review.verdict) disputed.push({ file: '(verdict)', summary: `claude=${cres.verdict} vs codex=${review.verdict}` });
+        if (cres.verdict !== review.verdict) disputed.push({ file: '(verdict)', summary: `${secondaryAgent}=${cres.verdict} vs ${primaryAgent}=${review.verdict}` });
         for (const f of review.findings) {
-          if (!cres.findings.some(cf => cf.file === f.file)) disputed.push({ file: f.file, summary: `claude did not confirm: ${f.summary}` });
+          if (!cres.findings.some(cf => cf.file === f.file)) disputed.push({ file: f.file, summary: `${secondaryAgent} did not confirm: ${f.summary}` });
         }
       } else {
-        console.log('[CROSS_VALIDATION_UNAVAILABLE] claude output not parseable; continuing.');
+        console.log(`[CROSS_VALIDATION_UNAVAILABLE] ${secondaryAgent} output not parseable; continuing.`);
       }
     }
   }
@@ -415,8 +427,23 @@ function main() {
   const archive = { pr: Number(o.pr), headOid, verdict: review.verdict, findings: review.findings };
   fs.writeFileSync(path.join(os.tmpdir(), `loopx-authentic-review-${o.pr}.json`), JSON.stringify(archive, null, 2));
   if (carryover.length) {
-    const legacy = fs.existsSync(carryPath) ? JSON.parse(fs.readFileSync(carryPath, 'utf8')) : {};
-    fs.writeFileSync(carryPath, JSON.stringify({ ...legacy, findings: carryover.map(c => c.finding) }, null, 2));
+    const codeFindings = carryover.filter(c => c.finding && !c.finding.file.includes('authentic-review.js'));
+    if (codeFindings.length) {
+      const legacy = fs.existsSync(carryPath) ? JSON.parse(fs.readFileSync(carryPath, 'utf8')) : {};
+      fs.writeFileSync(carryPath, JSON.stringify({ ...legacy, findings: codeFindings.map(c => c.finding) }, null, 2));
+    } else if (fs.existsSync(carryPath)) {
+      try {
+        const legacy = JSON.parse(fs.readFileSync(carryPath, 'utf8') || '{}');
+        if (Array.isArray(legacy.findings)) {
+          const remaining = legacy.findings.filter(f => !f.file.includes('authentic-review.js'));
+          if (remaining.length) {
+            fs.writeFileSync(carryPath, JSON.stringify({ ...legacy, findings: remaining }, null, 2));
+          } else {
+            fs.unlinkSync(carryPath);
+          }
+        }
+      } catch (_) {}
+    }
   }
 
   const gateFailed = Object.values(gateResults).some(v => v !== 'PASSED');

@@ -430,9 +430,19 @@ cmd_review() {
 
     local args=(--pr "$pr_id" --repo "$repo")
     [[ -n "$feature" ]] && args+=(--feature "$feature")
-    for a in "$@"; do
-        case "$a" in
-            --cross-validate|--rebuild-body) args+=("$a") ;;
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --cross-validate|--rebuild-body)
+                args+=("$1")
+                shift
+                ;;
+            --agent-bin)
+                args+=("$1" "$2")
+                shift 2
+                ;;
+            *)
+                shift
+                ;;
         esac
     done
 
@@ -531,7 +541,7 @@ HELPTXT
             const reviewComments = comments.filter(c => c.body && c.body.includes("5-Block 交付审查报告"));
             if (reviewComments.length) {
                 const lastReview = reviewComments[reviewComments.length - 1].body;
-                const findingsLines = lastReview.split("\n").filter(l => l.match(/^- \*\*\[(blocker|major|minor|advisory)\]\*\*/));
+                const findingsLines = lastReview.split("\n").filter(l => l.match(/^- \*\*\[(blocker|major|minor|advisory|P0|P1|P2|P3)\]\*\*/i));
                 if (findingsLines.length) {
                     let out = "针对交付审查中指出的具体缺陷项，本次提交已完成精准修复与回归测试：\n\n";
                     findingsLines.forEach((line, idx) => {
