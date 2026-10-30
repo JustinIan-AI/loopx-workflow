@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
@@ -40,15 +41,28 @@ test('1. Fail-Closed on Blocker: ingest-to-loopx-quality must exit 1 when defect
 });
 
 test('2. Diff SHA256 Binding: 05-evidence.md must contain exact diff fingerprint', () => {
-  const evidenceFile = path.join(PROJECT_ROOT, 'specs/features/change-quality-failclosed/05-evidence.md');
-  const originalEvidence = fs.existsSync(evidenceFile) ? fs.readFileSync(evidenceFile, 'utf8') : null;
+  const tmpFeature = `cq-isolated-${Date.now()}`;
+  const tmpFeatureDir = path.join(PROJECT_ROOT, 'specs/features', tmpFeature);
+  fs.mkdirSync(tmpFeatureDir, { recursive: true });
+  const evidenceFile = path.join(tmpFeatureDir, '05-evidence.md');
+
+  // Isolate from host loopx daemon / network using mock binary in temporary PATH
+  const tmpBin = fs.mkdtempSync(path.join(os.tmpdir(), 'mock-loopx-bin-'));
+  const mockLoopx = path.join(tmpBin, 'loopx');
+  fs.writeFileSync(mockLoopx, '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+
+  const env = {
+    ...process.env,
+    PATH: `${tmpBin}:${process.env.PATH || ''}`
+  };
 
   try {
     const res = spawnSync(process.execPath, [
       INGEST_SCRIPT,
-      '--feature', 'change-quality-failclosed'
+      '--feature', tmpFeature
     ], {
       cwd: PROJECT_ROOT,
+      env,
       encoding: 'utf8'
     });
 
@@ -58,14 +72,13 @@ test('2. Diff SHA256 Binding: 05-evidence.md must contain exact diff fingerprint
     }
     assert.strictEqual(res.status, 0, `Clean ingest must exit 0: ${res.stderr}`);
 
-    assert.strictEqual(fs.existsSync(evidenceFile), true, '05-evidence.md must exist');
-    const content = fs.readFileSync(evidenceFile, 'utf8');
-    assert.strictEqual(content.includes('Diff SHA256'), true, 'Evidence must record exact Diff SHA256');
-    assert.strictEqual(content.includes('PASSING'), true);
+    assert.strictEqual(fs.existsSync(evidenceFile), true, '05-evidence.md must exist in feature capsule');
+    const text = fs.readFileSync(evidenceFile, 'utf8');
+    assert.strictEqual(text.includes('Diff SHA256'), true, 'Evidence must record exact Diff SHA256');
+    assert.strictEqual(text.includes('PASSING'), true);
   } finally {
-    if (originalEvidence !== null) {
-      fs.writeFileSync(evidenceFile, originalEvidence);
-    }
+    fs.rmSync(tmpFeatureDir, { recursive: true, force: true });
+    fs.rmSync(tmpBin, { recursive: true, force: true });
   }
 });
 

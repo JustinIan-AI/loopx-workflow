@@ -793,12 +793,7 @@ cmd_merge() {
         fi
     fi
 
-    if [[ -n "$feature" && -d "$PROJECT_ROOT/specs/features/$feature" ]]; then
-        mkdir -p "$PROJECT_ROOT/specs/archive"
-        mv "$PROJECT_ROOT/specs/features/$feature" "$PROJECT_ROOT/specs/archive/$feature"
-        echo -e "    ${GREEN}[✓] 资产包已原子迁移至归档区: specs/archive/$feature/${NC}"
-    fi
-
+    # 1. 优先调用 LoopX Goal 停机与全局退役，确保在特性胶囊归档前基于活跃 state_file 完成正常核销
     if command -v loopx >/dev/null 2>&1 && [[ -n "$feature" ]]; then
         local goal_id="${feature}-goal"
         if ! loopx goal-lifecycle --goal-id "$goal_id" --operation stop --actor-kind controller --reason "Feature delivered and archived" --execute; then
@@ -810,6 +805,13 @@ cmd_merge() {
         loopx retire-global-goal --goal-id "$goal_id" --execute 2>/dev/null || true
         loopx sync-global 2>/dev/null || true
         echo -e "    ${GREEN}[✓] LoopX Goal $goal_id 已闭环核销并退役！${NC}"
+    fi
+
+    # 2. 正常停机完成后，再将特性胶囊原子移动至归档区
+    if [[ -n "$feature" && -d "$PROJECT_ROOT/specs/features/$feature" ]]; then
+        mkdir -p "$PROJECT_ROOT/specs/archive"
+        mv "$PROJECT_ROOT/specs/features/$feature" "$PROJECT_ROOT/specs/archive/$feature"
+        echo -e "    ${GREEN}[✓] 资产包已原子迁移至归档区: specs/archive/$feature/${NC}"
     fi
 
     echo -e "\n${GREEN}[✓] PR #$pr_id 交付全流程闭环完成！${NC}"
