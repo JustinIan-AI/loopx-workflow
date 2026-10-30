@@ -714,6 +714,13 @@
           "drift_threshold": 2,
           "contract_revision": "b1272c4f08886f6c7fba236902b24a8ff232d9a3d558f83d66092685f3b8c1ef"
         }
+      },
+      "activation": {
+        "schema_version": "loopx_goal_activation_v1",
+        "state": "stopped",
+        "updated_at": "2026-10-30T11:59:06+08:00",
+        "reason": "Feature delivered and merged to main",
+        "actor_kind": "controller"
       }
     }
   ]
