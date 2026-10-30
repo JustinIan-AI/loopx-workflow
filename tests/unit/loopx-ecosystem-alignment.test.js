@@ -85,11 +85,14 @@ test("9. Cross-Model CLI Adaptation: runReviewAgent supports claude -p vs codex 
   assert.match(flowCode, /--agent-bin/, "cmd_review must forward --agent-bin flag");
 });
 
-test("10. 5-Block Formatting & Verdict Visibility: fiveBlock renders 40-char head OID and uppercase English verdict", () => {
+test("10. Native Formatting & Verdict Visibility: review report is driven by LoopX native pr-review packet, not hand-written 5-Block", () => {
   const scriptContent = fs.readFileSync(AUTHENTIC_REVIEW_SCRIPT, "utf8");
-  assert.strictEqual(scriptContent.includes("head \\`${o.headOid.slice(0, 10)}\\` (\\`${o.headOid}\\`)"), true, "Must render full 40-char head OID in metadata");
-  assert.strictEqual(scriptContent.includes("English verdict"), true, "Must render English verdict");
-  assert.strictEqual(scriptContent.includes("(Verdict: **\${(o.verdict || 'approve').toUpperCase()}**)"), true, "Must render uppercase Verdict in Block 4 title");
+  assert.strictEqual(scriptContent.includes("loopx pr-review"), true, "Must drive review via LoopX native pr-review capability");
+  assert.strictEqual(scriptContent.includes("target-exact-head"), true, "Must fetch native packet by exact-head");
+  assert.strictEqual(scriptContent.includes("required_final_sections"), true, "Must honor native required_final_sections (动机/改动思路/具体改动/对主干的风险/我的整体评价)");
+  assert.strictEqual(scriptContent.includes("English verdict"), true, "Must render native English verdict line");
+  assert.strictEqual(scriptContent.includes("fiveBlock"), false, "Must NOT hand-write a 5-Block template");
+  assert.strictEqual(scriptContent.includes("buildPrompt"), false, "Must NOT hand-write a custom review prompt schema");
 });
 
 test("11. Carryover Isolation: authentic-review filters out review script from code carryover", () => {
