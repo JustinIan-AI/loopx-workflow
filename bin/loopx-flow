@@ -481,8 +481,8 @@ HELPTXT
 
     local report_file
     report_file="$(mktemp /tmp/pr-response-XXXXXX.md)"
-    cat << RESPEOF > "$report_file"
-### 针对 Review 意见的更新与验证汇报 (Commit `$short_sha`)
+    cat << 'RESPEOF' > "$report_file"
+### 针对 Review 意见的更新与验证汇报 (Commit `__SHORT_SHA__`)
 
 针对交付审查中指出的缺陷项与生态对齐要求，本次提交已完成精准修复与回归测试：
 
@@ -499,17 +499,23 @@ HELPTXT
 
 | Check | Result | Details |
 |---|---|---|
-| `npm run typecheck` | $tc_res | TypeScript strict noEmit |
-| `npm run lint` | $lint_res | Shell syntax & JS AST clean |
-| `npm run build` | $build_res | All binaries and permissions verified |
-| `npm test` | $test_res | All 10 suites passed 100% green |
+| `npm run typecheck` | __TC_RES__ | TypeScript strict noEmit |
+| `npm run lint` | __LINT_RES__ | Shell syntax & JS AST clean |
+| `npm run build` | __BUILD_RES__ | All binaries and permissions verified |
+| `npm test` | __TEST_RES__ | All 10 suites passed 100% green |
 | `loopx status` | PASSED | ok: True (contract errors: 0, warnings: 0) |
 
 RESPEOF
 
+    sed -i "" "s/__SHORT_SHA__/$short_sha/g" "$report_file" 2>/dev/null || sed -i "s/__SHORT_SHA__/$short_sha/g" "$report_file"
+    sed -i "" "s/__TC_RES__/$tc_res/g" "$report_file" 2>/dev/null || sed -i "s/__TC_RES__/$tc_res/g" "$report_file"
+    sed -i "" "s/__LINT_RES__/$lint_res/g" "$report_file" 2>/dev/null || sed -i "s/__LINT_RES__/$lint_res/g" "$report_file"
+    sed -i "" "s/__BUILD_RES__/$build_res/g" "$report_file" 2>/dev/null || sed -i "s/__BUILD_RES__/$build_res/g" "$report_file"
+    sed -i "" "s/__TEST_RES__/$test_res/g" "$report_file" 2>/dev/null || sed -i "s/__TEST_RES__/$test_res/g" "$report_file"
+
     gh pr comment "$pr_id" --repo "$repo" --body-file "$report_file"
     rm -f "$report_file"
-    echo -e "${GREEN}[✓] 已成功发布基于实测验证的更新汇报至 PR #$pr_id！${NC}"
+    echo -e "${GREEN}[✓] 已成功发布基于实测验证的更新汇报至 PR #${pr_id}！${NC}"
 }
 
 cmd_merge() {
